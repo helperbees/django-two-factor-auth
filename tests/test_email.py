@@ -8,8 +8,9 @@ from django.test import TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 from django_otp import DEVICE_ID_SESSION_KEY
+from django_otp.plugins.otp_email.models import EmailDevice
 
-from .utils import UserMixin
+from .utils import UserMixin, default_device
 
 
 class EmailTest(UserMixin, TestCase):
@@ -35,6 +36,9 @@ class EmailTest(UserMixin, TestCase):
         self.assertContains(response, 'Method:')
         self.assertContains(response, 'Email')
         self.assertEqual(len(mail.outbox), 0)
+
+        # Right now, the user does not have a default 2FA device.
+        self.assertEqual(default_device(self.user), None)
 
         # assert that if user email not empty skip email form
         response = self.client.post(reverse('two_factor:setup'),
@@ -91,6 +95,11 @@ class EmailTest(UserMixin, TestCase):
         if response.status_code == 200:
             self.fail(response.context['form'].errors)
         self.assertRedirects(response, reverse('two_factor:setup_complete'))
+
+        # Now the user has a default 2FA device that is an EmailDevice.
+        device = default_device(self.user)
+        self.assertNotEqual(device, None)
+        self.assertTrue(isinstance(device, EmailDevice))
 
         # Check save user on success.
         self.assertIn(
